@@ -78,10 +78,10 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({ imageSrc, rawImage, 
 
         const formData = new FormData();
         formData.append('image', blob, 'result.png');
-        formData.append('folder', 'chuck-e-cheese-photobooth');
+        formData.append('folder', 'US-Embassy-2026');
         formData.append('metadata', JSON.stringify({
-          event: 'Chuck-E-Cheese-Photobooth',
-          photobooth_id: 'Chuck-E-Cheese-Photobooth',
+          event: 'US-Embassy-Photobooth-2026',
+          photobooth_id: 'US-Embassy-Photobooth-2026',
           era: era.name,
           prompt: prompt
         }));
@@ -129,12 +129,12 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({ imageSrc, rawImage, 
     };
 
     uploadImage();
-  }, [imageSrc]);
+  }, [imageSrc, era.name, prompt]);
 
   const handleDownload = () => {
     const link = document.createElement('a');
     link.href = imageSrc;
-    link.download = `chuck-e-cheese-photobooth-${era.id}-${Date.now()}.png`;
+    link.download = `us-embassy-photobooth-2026-${era.id}-${Date.now()}.png`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

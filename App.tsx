@@ -6,6 +6,7 @@ import { ResultScreen } from './components/ResultScreen';
 import { CapturePreview } from './components/CapturePreview';
 import { generateHistoricalImage } from './services/geminiService';
 import { Splash } from './components/Splash';
+import { EraSelectionScreen } from './components/EraSelectionScreen';
 
 const App: React.FC = () => {
   const [currentScreen, setCurrentScreen] = useState<AppScreen>(AppScreen.SPLASH);
@@ -86,7 +87,16 @@ const App: React.FC = () => {
       case AppScreen.SPLASH:
         return (
           <Splash
-            onDismiss={(era) => {
+            onDismiss={() => {
+              setCurrentScreen(AppScreen.ERA_SELECTION);
+            }}
+          />
+        );
+
+      case AppScreen.ERA_SELECTION:
+        return (
+          <EraSelectionScreen 
+            onSelectEra={(era) => {
               setSelectedEra(era);
               setCurrentScreen(AppScreen.CAMERA);
             }}
@@ -127,9 +137,8 @@ const App: React.FC = () => {
       default:
         return (
           <Splash
-            onDismiss={(era) => {
-              setSelectedEra(era);
-              setCurrentScreen(AppScreen.CAMERA);
+            onDismiss={() => {
+              setCurrentScreen(AppScreen.ERA_SELECTION);
             }}
           />
         );

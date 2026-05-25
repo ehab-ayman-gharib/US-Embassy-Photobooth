@@ -1,9 +1,9 @@
 {
-  "name": "clarion-bayer-samurai-event",
+  "name": "us-embassy-photobooth-2026",
   "private": true,
   "version": "0.0.1",
   "author": "5DVR",
-  "description": "Clarion Bayer Samurai Event Application",
+  "description": "US-Embassy-Photobooth-2026 Application",
   "main": "electron/main.cjs",
   "type": "module",
   "scripts": {
@@ -39,8 +39,8 @@
     "wait-on": "^9.0.3"
   },
   "build": {
-    "appId": "com.5dvr.clarionbayer",
-    "productName": "Clarion Bayer Samurai Event",
+    "appId": "com.5dvr.usembassyphotobooth",
+    "productName": "US-Embassy-Photobooth-2026",
     "directories": {
       "output": "release"
     },

@@ -1,18 +1,13 @@
 import React, { useEffect, useRef } from 'react';
-import { EraData } from '../types';
-import { ERAS } from '../constants';
 
-export const Splash: React.FC<{ onDismiss: (era: EraData) => void }> = ({ onDismiss }) => {
+export const Splash: React.FC<{ onDismiss: () => void }> = ({ onDismiss }) => {
   const isTransitioningRef = useRef(false);
 
   useEffect(() => {
     const handleInteraction = () => {
       if (isTransitioningRef.current) return;
       isTransitioningRef.current = true;
-
-      // Select random era and dismiss
-      const eraIndex = Math.floor(Math.random() * ERAS.length);
-      onDismiss(ERAS[eraIndex]);
+      onDismiss();
     };
 
     window.addEventListener('mousedown', handleInteraction);

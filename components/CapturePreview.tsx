@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { RotateCcw } from 'lucide-react';
+import React from 'react';
+import { RotateCcw, ArrowRight } from 'lucide-react';
 import { EraData } from '../types';
 
 interface CapturePreviewProps {
@@ -15,22 +15,6 @@ export const CapturePreview: React.FC<CapturePreviewProps> = ({
   onProceed, 
   era 
 }) => {
-  const [timeLeft, setTimeLeft] = useState(5);
-
-  useEffect(() => {
-    if (timeLeft === 0) {
-      onProceed();
-    }
-  }, [timeLeft, onProceed]);
-
-  useEffect(() => {
-    // Timer to auto-advance if no action taken
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => (prev > 0 ? prev - 1 : 0));
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, []);
 
   return (
     <div className="h-full w-full relative overflow-hidden bg-black flex flex-col items-center justify-center p-6">
@@ -54,21 +38,22 @@ export const CapturePreview: React.FC<CapturePreviewProps> = ({
       {/* Actions Container - Bottom Center */}
       <div className="relative z-20 flex flex-col items-center gap-6 mt-12 w-full animate-slide-in-bottom">
         
-        {/* Auto-Proceed Timer Indicator */}
-        <div className="bg-white/10 backdrop-blur-md px-4 py-1.5 rounded-full border border-white/20 shadow-xl">
-           <span className="text-white/60 text-[10px] font-black uppercase tracking-[0.2em]">
-             Starting AI in <span className="text-white">{timeLeft}s</span>
-           </span>
-        </div>
-
-        {/* Retake Button - Style matched to the reference screenshot */}
-        <div className="flex gap-4">
+        {/* Action Buttons */}
+        <div className="flex gap-6">
           <button
             onClick={onRetake}
-            className="group flex items-center justify-center gap-4 px-12 py-5 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-blue-500 hover:to-cyan-500 text-white font-black rounded-[24px] shadow-[0_12px_30px_rgba(0,255,255,0.3)] border-b-4 border-cyan-700 active:border-0 active:translate-y-1 transition-all duration-300 min-w-[280px]"
+            className="group flex items-center justify-center gap-3 px-8 py-5 bg-gradient-to-r from-slate-700 to-slate-800 hover:from-slate-600 hover:to-slate-700 text-white font-black rounded-[24px] shadow-[0_12px_30px_rgba(0,0,0,0.3)] border-b-4 border-slate-900 active:border-0 active:translate-y-1 transition-all duration-300 min-w-[200px]"
           >
-            <RotateCcw className="w-7 h-7 group-hover:rotate-[-45deg] transition-transform" />
-            <span className="text-xl uppercase tracking-widest brand-font">Retake Photo</span>
+            <RotateCcw className="w-6 h-6 group-hover:rotate-[-45deg] transition-transform" />
+            <span className="text-lg uppercase tracking-widest brand-font">Retake</span>
+          </button>
+          
+          <button
+            onClick={onProceed}
+            className="group flex items-center justify-center gap-3 px-8 py-5 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-blue-500 hover:to-cyan-500 text-white font-black rounded-[24px] shadow-[0_12px_30px_rgba(0,255,255,0.3)] border-b-4 border-cyan-700 active:border-0 active:translate-y-1 transition-all duration-300 min-w-[200px]"
+          >
+            <span className="text-lg uppercase tracking-widest brand-font">Proceed</span>
+            <ArrowRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
           </button>
         </div>
       </div>

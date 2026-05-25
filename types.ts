@@ -8,11 +8,8 @@ export enum AppScreen {
 }
 
 export enum EraId {
-  GUARDIAN = 'guardian',
-  LOTUS = 'lotus',
-  SHADOW = 'shadow',
-  SILENT = 'silent',
-  ASCENDANT = 'ascendant',
+  DELAWARE = 'delaware',
+  DECLARATION = 'declaration'
 }
 
 export interface EraData {
@@ -22,17 +19,9 @@ export interface EraData {
   promptInstructions: string;
 }
 
-
 export interface FaceDetectionResult {
   maleCount: number;
   femaleCount: number;
   childCount: number;
   totalPeople: number;
-}
-
-export interface Character {
-  name: string;
-  description: string;
-  pose: string;
-  attire: string;
 }
