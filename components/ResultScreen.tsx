@@ -135,12 +135,15 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
         const { ipcRenderer } = (window as any).require('electron');
         let printableImage = imageSrc;
 
+        const isCP910 = selectedPrinter.toLowerCase().includes('cp910');
+        console.log(`[Printer] Model detection: "${selectedPrinter}" → ${isCP910 ? 'CP910 (safe-zone margins)' : 'Other printer (no margins)'}`);
+
         const preparePrintImage = async (base64: string): Promise<string> => {
           return new Promise((resolve) => {
             const img = new Image();
             img.onload = () => {
               const canvas = document.createElement('canvas');
-              // Enforce exactly 1200 x 1800 resolution for printing adjustments (Cairo-2100 strategy)
+              // Enforce exactly 1200 x 1800 resolution for printing
               canvas.width = 1200;
               canvas.height = 1800;
               const ctx = canvas.getContext('2d');
@@ -149,19 +152,29 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
               ctx.fillStyle = 'black';
               ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-              // Set margins (70px top, 40px bottom, 24px left and right to match physical printer bleed)
-              const padTop = 70;
-              const padBottom = 40;
-              const padLeft = 24;
-              const padRight = 24;
+              if (isCP910) {
+                // Canon SELPHY CP910: apply calibrated safe-zone margins to compensate
+                // for the printer's ~2% borderless bleed expansion on all sides.
+                // padTop=70, padBottom=40, padLeft/Right=24 (see PRINTING_SETUP.md)
+                const padTop = 70;
+                const padBottom = 40;
+                const padLeft = 24;
+                const padRight = 24;
 
-              // Draw image inside safe margins (no distortion)
-              ctx.drawImage(
-                img,
-                padLeft, padTop,
-                canvas.width - (padLeft + padRight),
-                canvas.height - (padTop + padBottom)
-              );
+                ctx.drawImage(
+                  img,
+                  padLeft, padTop,
+                  canvas.width - (padLeft + padRight),
+                  canvas.height - (padTop + padBottom)
+                );
+                console.log('[Printer] Applied CP910 safe-zone margins');
+              } else {
+                // All other printers (e.g. CP1500 via PrintFab): render the image
+                // edge-to-edge at full 1200x1800. The driver/RIP handles its own bleed.
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                console.log('[Printer] No margins applied — full 1200x1800 image sent to driver');
+              }
+
               resolve(canvas.toDataURL('image/jpeg', 0.95));
             };
             img.onerror = () => resolve(base64);

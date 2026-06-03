@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { RefreshCw, AlertCircle, ChevronLeft, Upload } from 'lucide-react';
+import { RefreshCw, AlertCircle, ChevronLeft } from 'lucide-react';
 import { PortalCountdown } from './PortalCountdown';
 import { loadFaceApiModels, detectFaces } from '../services/faceService';
 import { EraData, FaceDetectionResult, EraId } from '../types';
@@ -20,7 +20,6 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ era, onCapture, on
   const [isDetecting, setIsDetecting] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [showFlash, setShowFlash] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const init = async () => {
@@ -100,50 +99,6 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ era, onCapture, on
     }
     setIsDetecting(false);
   }, [era, modelsLoaded, onCapture, isDetecting]);
-
-  const handleFileUpload = () => {
-    fileInputRef.current?.click();
-  };
-
-  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    setIsDetecting(true);
-
-    // Create an image element to read the file
-    const img = new Image();
-    img.src = URL.createObjectURL(file);
-
-    img.onload = async () => {
-      if (!canvasRef.current) return;
-      const canvas = canvasRef.current;
-
-      // For AI modes: Keep original aspect ratio, but limit size
-      const MAX_DIMENSION = 1500;
-      let width = img.width;
-      let height = img.height;
-
-      if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
-        const ratio = Math.min(MAX_DIMENSION / width, MAX_DIMENSION / height);
-        width = Math.round(width * ratio);
-        height = Math.round(height * ratio);
-      }
-
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext('2d');
-
-      if (ctx) {
-        ctx.drawImage(img, 0, 0, width, height);
-        const imageData = canvas.toDataURL('image/jpeg', 0.9);
-        const faceData = await detectFaces(img, modelsLoaded);
-        onCapture(imageData, faceData);
-      }
-      setIsDetecting(false);
-      if (event.target) event.target.value = ''; // Reset input
-    };
-  };
 
   // Store capture handler in ref to avoid effect dependency issues
   const captureRef = useRef(handleCaptureImmediate);
@@ -262,23 +217,6 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ era, onCapture, on
       {/* Footer Controls */}
       {!isProcessing && (
         <div className="absolute bottom-0 left-0 right-0 p-10 pb-16 z-20 flex justify-center items-center gap-8 bg-gradient-to-t from-black/80 via-black/40 to-transparent">
-          {/* Upload Button */}
-
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleFileSelect}
-            accept="image/*"
-            className="hidden"
-          />
-          <button
-            onClick={handleFileUpload}
-            disabled={isDetecting || countdown !== null}
-            className="p-4 bg-white/20 backdrop-blur-md rounded-full text-[#E8D5B5] hover:bg-white/30 transition-colors disabled:opacity-50"
-          >
-            <Upload size={24} />
-          </button>
-
           {/* Capture Button */}
           <button
             onClick={startCaptureSequence}
@@ -318,8 +256,6 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ era, onCapture, on
             </div>
           </button>
 
-          {/* Placeholder for symmetry */}
-          <div className="w-[56px]"></div>
         </div>
       )}
     </div>
