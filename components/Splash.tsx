@@ -1,48 +1,50 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+
+const SPLASH_VIDEOS = [
+  './Videos/US_01.mp4',
+  './Videos/US_02.mp4',
+  './Videos/US_03.mp4'
+];
 
 export const Splash: React.FC<{ onDismiss: () => void }> = ({ onDismiss }) => {
   const isTransitioningRef = useRef(false);
+  const [videoIndex] = useState(() => {
+    const saved = localStorage.getItem('splashVideoIndex');
+    return saved ? parseInt(saved, 10) % SPLASH_VIDEOS.length : 0;
+  });
+  const videoRef = useRef<HTMLVideoElement>(null);
 
-  useEffect(() => {
-    const handleInteraction = () => {
-      if (isTransitioningRef.current) return;
-      isTransitioningRef.current = true;
-      onDismiss();
-    };
+  const handleTransition = () => {
+    if (isTransitioningRef.current) return;
+    isTransitioningRef.current = true;
 
-    window.addEventListener('mousedown', handleInteraction);
-    window.addEventListener('keydown', handleInteraction);
-    window.addEventListener('touchstart', handleInteraction);
-    return () => {
-      window.removeEventListener('mousedown', handleInteraction);
-      window.removeEventListener('keydown', handleInteraction);
-      window.removeEventListener('touchstart', handleInteraction);
-    };
-  }, [onDismiss]);
+    // Increment video index for the next session restart
+    const nextIndex = (videoIndex + 1) % SPLASH_VIDEOS.length;
+    localStorage.setItem('splashVideoIndex', nextIndex.toString());
+
+    onDismiss();
+  };
+
+  const handleVideoEnded = () => {
+    handleTransition();
+  };
 
   return (
-    <div className="fixed inset-0 z-[9999] bg-slate-900 overflow-hidden cursor-none">
+    <div className="fixed inset-0 z-[9999] bg-[#FAF6EE] overflow-hidden cursor-none">
+      {/* Background Video Layer */}
       <video
+        ref={videoRef}
         autoPlay
-        loop
-        muted={true}
+        muted={false}
         playsInline
+        onEnded={handleVideoEnded}
         className="absolute inset-0 w-full h-full object-cover z-0"
-        src="./Intro.mp4"
-      />
+      >
+        <source src={SPLASH_VIDEOS[videoIndex]} type="video/mp4" />
+      </video>
 
-      <div className="absolute inset-0 z-10 flex flex-col items-center justify-end pb-16 pointer-events-none">
-        <div
-          className="text-5xl tracking-[0.5em] uppercase font-bold animate-pulse"
-          style={{
-            fontFamily: '"Cinzel", serif',
-            color: 'rgba(0, 255, 255, 0.8)',
-            textShadow: '0 0 20px rgba(0, 255, 255, 0.6), 0 0 40px rgba(0, 255, 255, 0.3), 0 0 80px rgba(0, 255, 255, 0.15)'
-          }}
-        >
-          Tap to Start
-        </div>
-      </div>
+      {/* Warm tea-stained vintage vignette overlay */}
+      <div className="absolute inset-0 z-5 bg-gradient-to-t from-[#E3D4B6]/30 via-transparent to-[#FAF6EE]/20 pointer-events-none" />
     </div>
   );
 };

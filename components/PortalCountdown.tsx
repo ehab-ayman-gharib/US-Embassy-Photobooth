@@ -15,12 +15,13 @@ export const PortalCountdown: React.FC<PortalCountdownProps> = ({ count }) => {
       <div
         className="absolute inset-0 flex items-center justify-center select-none pointer-events-none"
         style={{
-          fontFamily: '"KyivTypeSerif", serif',
-          fontSize: '9rem',
+          fontFamily: '"DM Sans", sans-serif',
+          fontWeight: 900,
+          fontSize: '12rem',
           lineHeight: 1,
-          color: '#ffffff',
-          textShadow: '0 0 15px #00ffff, 0 0 30px #00ffff',
-          paddingBottom: '1.5rem' // Fine-tune vertical centering with the ring
+          color: '#FAF6EE',
+          textShadow: '0 4px 15px rgba(0,0,0,0.85), 0 0 35px rgba(178,34,52,0.6)',
+          paddingBottom: '1.5rem'
         }}
       >
         <span key={count} className="animate-ping-once">

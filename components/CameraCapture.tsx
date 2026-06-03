@@ -184,10 +184,10 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ era, onCapture, on
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center h-full p-8 text-center bg-slate-900">
-        <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
-        <p className="text-slate-400">{error}</p>
-        <button onClick={onBack} className="mt-8 px-8 py-3 bg-slate-800 text-white rounded-full">Go Back</button>
+      <div className="flex flex-col items-center justify-center h-full p-8 text-center bg-[#050E1A]">
+        <AlertCircle className="w-12 h-12 text-[#E8733A] mb-4" />
+        <p className="text-[#E8D5B5]/70">{error}</p>
+        <button onClick={onBack} className="mt-8 px-8 py-3 bg-[#3A0B14] text-[#E8D5B5] rounded-full border border-[#C17F4E]/30">Go Back</button>
       </div>
     );
   }
@@ -215,10 +215,10 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ era, onCapture, on
 
       {/* Model Loading Overlay */}
       {!modelsLoaded && !error && (
-        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-slate-900/80 backdrop-blur-sm animate-fade-in">
-          <RefreshCw className="w-12 h-12 text-yellow-500 animate-spin mb-4" />
-          <p className="text-white text-lg font-bold brand-font tracking-wider">INITIALIZING AI</p>
-          <p className="text-slate-300 text-xs mt-2 font-mono">Loading neural networks...</p>
+        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-[#050E1A]/80 backdrop-blur-sm animate-fade-in">
+          <RefreshCw className="w-12 h-12 text-[#C17F4E] animate-spin mb-4" />
+          <p className="text-[#E8D5B5] text-lg font-bold brand-font tracking-wider">INITIALIZING AI</p>
+          <p className="text-[#E8D5B5]/50 text-xs mt-2 font-mono">Loading neural networks...</p>
         </div>
       )}
 
@@ -249,7 +249,7 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ era, onCapture, on
         <div className="absolute top-0 left-0 right-0 p-6 z-20 flex items-center justify-between bg-gradient-to-b from-black/60 to-transparent">
           <button
             onClick={onBack}
-            className="w-12 h-12 flex items-center justify-center bg-black/20 backdrop-blur-md rounded-full text-white hover:bg-white/10 transition-colors"
+            className="w-12 h-12 flex items-center justify-center bg-black/20 backdrop-blur-md rounded-full text-[#E8D5B5] hover:bg-white/10 transition-colors"
           >
             <ChevronLeft size={24} />
           </button>
@@ -274,7 +274,7 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ era, onCapture, on
           <button
             onClick={handleFileUpload}
             disabled={isDetecting || countdown !== null}
-            className="p-4 bg-white/20 backdrop-blur-md rounded-full text-white hover:bg-white/30 transition-colors disabled:opacity-50"
+            className="p-4 bg-white/20 backdrop-blur-md rounded-full text-[#E8D5B5] hover:bg-white/30 transition-colors disabled:opacity-50"
           >
             <Upload size={24} />
           </button>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { EraData, FaceDetectionResult } from '../types';
-import { Download, RotateCcw, Share2, QrCode, Loader2, Printer, CheckCircle2, XCircle } from 'lucide-react';
-
+import { Download, RotateCcw, Loader2, Printer, CheckCircle2, XCircle } from 'lucide-react';
+import { Fireworks3D } from './Fireworks3D';
 
 interface ResultScreenProps {
   imageSrc: string;
@@ -13,41 +13,35 @@ interface ResultScreenProps {
   onUpdateImage: (newImage: string) => void;
 }
 
-export const ResultScreen: React.FC<ResultScreenProps> = ({ imageSrc, rawImage, prompt, era, faceData, onRestart, onUpdateImage }) => {
+export const ResultScreen: React.FC<ResultScreenProps> = ({
+  imageSrc,
+  rawImage,
+  prompt,
+  era,
+  faceData,
+  onRestart,
+  onUpdateImage
+}) => {
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [printers, setPrinters] = useState<any[]>([]);
   const [selectedPrinter, setSelectedPrinter] = useState<string>(localStorage.getItem('preferredPrinter') || '');
   const [showPrinterSettings, setShowPrinterSettings] = useState(false);
-  // printStatus can be 'idle', 'printing', 'success', or 'error:Reasons'
   const [printStatus, setPrintStatus] = useState<'idle' | 'printing' | 'success' | string>('idle');
 
+  // Fetch System Printers (Electron)
   useEffect(() => {
-    // Fetch printers if in Electron
     const isElectron = navigator.userAgent.indexOf('Electron') !== -1;
-    console.log('[ResultScreen] Checking for Electron:', isElectron);
-    console.log('[ResultScreen] window.require available:', !!(window as any).require);
-
     if (isElectron && (window as any).require) {
-      console.log('[ResultScreen] Fetching printers...');
       const { ipcRenderer } = (window as any).require('electron');
       ipcRenderer.invoke('get-printers').then(({ printers: pList, config }: { printers: any[], config: any }) => {
-        console.log('[ResultScreen] Printers received:', pList.map((p: any) => p.name));
-        console.log('[ResultScreen] Printer config:', config);
         setPrinters(pList);
-
-        // Priority: 
-        // 1. Manually saved in LocalStorage from previous session
-        // 2. Hardcoded in printer-config.json
-        // 3. System Default
         if (!selectedPrinter) {
           if (config.printerName) {
-            console.log('[ResultScreen] Using config printer:', config.printerName);
             setSelectedPrinter(config.printerName);
           } else {
             const defaultP = pList.find((p: any) => p.isDefault);
             if (defaultP) {
-              console.log('[ResultScreen] Using default printer:', defaultP.name);
               setSelectedPrinter(defaultP.name);
             }
           }
@@ -55,24 +49,22 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({ imageSrc, rawImage, 
       }).catch((err: any) => {
         console.error('[ResultScreen] Error fetching printers:', err);
       });
-    } else {
-      console.log('[ResultScreen] Not in Electron or require not available');
     }
-  }, []);
+  }, [selectedPrinter]);
 
   const handlePrinterChange = (name: string) => {
     setSelectedPrinter(name);
     localStorage.setItem('preferredPrinter', name);
   };
 
+  // Auto-Upload Image to Cloud for QR Sharing
   useEffect(() => {
     const uploadImage = async () => {
       if (!imageSrc) return;
       setIsUploading(true);
-      setQrCodeUrl(null); // Reset before attempt
+      setQrCodeUrl(null);
 
       try {
-        console.log('[QR API] Starting upload process...');
         const response = await fetch(imageSrc);
         const blob = await response.blob();
 
@@ -91,7 +83,6 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({ imageSrc, rawImage, 
 
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
           try {
-            console.log(`[QR API] Upload attempt ${attempt}/${maxAttempts}...`);
             const uploadRes = await fetch('https://qr-web-api.vercel.app/upload', {
               method: 'POST',
               body: formData,
@@ -99,19 +90,14 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({ imageSrc, rawImage, 
 
             if (uploadRes.ok) {
               apiResponse = await uploadRes.json();
-              console.log('[QR API] Upload successful:', apiResponse);
               break;
-            } else {
-              const errorText = await uploadRes.text();
-              console.warn(`[QR API] Attempt ${attempt} failed with status ${uploadRes.status}:`, errorText);
             }
           } catch (e) {
-            console.warn(`[QR API] Attempt ${attempt} encountered error:`, e);
+            console.warn(`[QR API] Attempt ${attempt} failed:`, e);
           }
 
           if (attempt < maxAttempts) {
             const delay = Math.pow(2, attempt) * 1000;
-            console.log(`[QR API] Waiting ${delay}ms before next attempt...`);
             await new Promise(r => setTimeout(r, delay));
           }
         }
@@ -141,49 +127,39 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({ imageSrc, rawImage, 
   };
 
   const handlePrint = async () => {
-    // Check if running in Electron and have access to node integration
     const isElectron = navigator.userAgent.indexOf('Electron') !== -1;
-    console.log('[ResultScreen] handlePrint called');
-    console.log('[ResultScreen] isElectron:', isElectron);
-    console.log('[ResultScreen] window.require:', !!(window as any).require);
-    console.log('[ResultScreen] selectedPrinter:', selectedPrinter);
-    console.log('[ResultScreen] imageSrc length:', imageSrc?.length || 0);
-
     setPrintStatus('printing');
 
     if (isElectron && (window as any).require) {
       try {
-        console.log('[ResultScreen] Invoking print-image IPC...');
         const { ipcRenderer } = (window as any).require('electron');
-        console.log('[ResultScreen] ipcRenderer obtained:', !!ipcRenderer);
-
-        // Generate the version with margins for printing (Safe Zone for SELPHY)
-        const startTime = Date.now();
-        let printableImage = rawImage;
+        let printableImage = imageSrc;
 
         const preparePrintImage = async (base64: string): Promise<string> => {
           return new Promise((resolve) => {
             const img = new Image();
             img.onload = () => {
               const canvas = document.createElement('canvas');
-              canvas.width = img.width;
-              canvas.height = img.height;
+              // Enforce exactly 1200 x 1800 resolution for printing adjustments (Cairo-2100 strategy)
+              canvas.width = 1200;
+              canvas.height = 1800;
               const ctx = canvas.getContext('2d');
               if (!ctx) { resolve(base64); return; }
 
               ctx.fillStyle = 'black';
               ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-              // 2. Calculate asymmetrical vertical padding
-              const paddingPercent = 0.04;
-              const padTop = canvas.height * paddingPercent;
-              const padBottom = padTop * 0.8; // Decrease bottom padding by 10%
+              // Set margins (70px top, 40px bottom, 24px left and right to match physical printer bleed)
+              const padTop = 70;
+              const padBottom = 40;
+              const padLeft = 24;
+              const padRight = 24;
 
-              // 3. Draw image with asymmetrical vertical padding
+              // Draw image inside safe margins (no distortion)
               ctx.drawImage(
                 img,
-                0, padTop,
-                canvas.width,
+                padLeft, padTop,
+                canvas.width - (padLeft + padRight),
                 canvas.height - (padTop + padBottom)
               );
               resolve(canvas.toDataURL('image/jpeg', 0.95));
@@ -194,17 +170,13 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({ imageSrc, rawImage, 
         };
 
         try {
-          printableImage = await preparePrintImage(rawImage);
-          console.log('[ResultScreen] Calling ipcRenderer.invoke("print-image")...');
+          printableImage = await preparePrintImage(imageSrc);
           const result = await ipcRenderer.invoke('print-image', { imageSrc: printableImage, printerName: selectedPrinter });
-          console.log('[ResultScreen] print-image result:', result, 'took', Date.now() - startTime, 'ms');
 
           if (result.success) {
-            console.log('[ResultScreen] Print successful!');
             setPrintStatus('success');
             setTimeout(() => setPrintStatus('idle'), 3000);
           } else {
-            console.log('[ResultScreen] Print failed:', result.failureReason);
             setPrintStatus(`error:${result.failureReason}`);
             setTimeout(() => setPrintStatus('idle'), 5000);
           }
@@ -225,8 +197,6 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({ imageSrc, rawImage, 
 
   const handleTestPrint = async () => {
     const isElectron = navigator.userAgent.indexOf('Electron') !== -1;
-    console.log('[ResultScreen] TEST PRINT called');
-
     if (!isElectron || !(window as any).require) {
       alert('Test print only works in Electron build');
       return;
@@ -235,21 +205,15 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({ imageSrc, rawImage, 
     setPrintStatus('printing');
 
     try {
-      // Create a simple solid color test image (small red square)
       const canvas = document.createElement('canvas');
       canvas.width = 400;
       canvas.height = 600;
       const ctx = canvas.getContext('2d');
       if (ctx) {
-        // Fill with white background
         ctx.fillStyle = 'white';
         ctx.fillRect(0, 0, 400, 600);
-
-        // Draw a red rectangle
-        ctx.fillStyle = 'red';
+        ctx.fillStyle = '#8B2942';
         ctx.fillRect(50, 50, 300, 500);
-
-        // Add text
         ctx.fillStyle = 'white';
         ctx.font = 'bold 48px Arial';
         ctx.textAlign = 'center';
@@ -257,15 +221,11 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({ imageSrc, rawImage, 
       }
 
       const testImageSrc = canvas.toDataURL('image/png');
-      console.log('[ResultScreen] Test image created, length:', testImageSrc.length);
-
       const { ipcRenderer } = (window as any).require('electron');
       const result = await ipcRenderer.invoke('print-image', {
         imageSrc: testImageSrc,
         printerName: selectedPrinter
       });
-
-      console.log('[ResultScreen] Test print result:', result);
 
       if (result.success) {
         setPrintStatus('success');
@@ -282,7 +242,6 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({ imageSrc, rawImage, 
   };
 
   const browserPrint = (src: string = imageSrc) => {
-    // Create a hidden iframe
     const iframe = document.createElement('iframe');
     iframe.style.position = 'fixed';
     iframe.style.right = '0';
@@ -322,42 +281,56 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({ imageSrc, rawImage, 
   };
 
   return (
-    <div className="h-full w-full relative overflow-hidden bg-[#1E1E1E] flex flex-col items-center justify-center">
-      <div className="absolute inset-0 bg-black/20 z-[1]" />
+    <div className="h-full w-full relative overflow-hidden bg-transparent flex flex-col items-center justify-center py-6 px-4">
+      {/* 3D WebGL Fireworks Shooting Stars Background */}
+      <Fireworks3D intensity="medium" />
+
+      {/* Floating settings button on the very top-right - styled in sepia glass */}
+      <div className="absolute top-4 right-4 z-20">
+        {((window as any).require || navigator.userAgent.indexOf('Electron') !== -1) && (
+          <button
+            onClick={() => setShowPrinterSettings(true)}
+            className="w-12 h-12 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-full text-[#E8D5B5] border border-white/10 shadow-lg active:scale-95 group transition-all"
+            title="Printer Settings"
+          >
+            <Printer size={20} className="group-hover:rotate-12 transition-transform" />
+          </button>
+        )}
+      </div>
 
       {/* Printing Feedback Overlay */}
       {printStatus !== 'idle' && (
         <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 z-[110] flex flex-col items-center justify-center animate-scale-in">
-          <div className="bg-black/80 backdrop-blur-xl border border-yellow-500/30 p-12 rounded-full flex flex-col items-center gap-6 shadow-[0_0_100px_rgba(0,0,0,0.9)] min-w-[300px]">
+          <div className="bg-[#FAF7F2]/95 backdrop-blur-xl border-2 border-[#D2C5AD] p-12 rounded-[40px] flex flex-col items-center gap-6 shadow-[0_20px_60px_rgba(0,0,0,0.15)] min-w-[300px]">
             {printStatus === 'printing' && (
               <>
                 <div className="relative">
-                  <Printer className="text-yellow-500 animate-bounce" size={64} />
-                  <div className="absolute -inset-4 bg-yellow-500/20 blur-2xl rounded-full animate-pulse" />
+                  <Printer className="text-[#B22234] animate-bounce" size={64} />
+                  <div className="absolute -inset-4 bg-[#B22234]/10 blur-2xl rounded-full animate-pulse" />
                 </div>
                 <div className="flex flex-col items-center gap-2">
-                  <span className="text-2xl font-black text-white uppercase tracking-widest">Printing...</span>
-                  <span className="text-xs text-yellow-500/70 font-bold uppercase tracking-widest">Your artifact is being prepared</span>
+                  <span className="text-2xl font-black text-[#201C18] uppercase tracking-widest brand-font">Printing...</span>
+                  <span className="text-xs text-[#B22234]/80 font-bold uppercase tracking-widest">Preparing physical print</span>
                 </div>
               </>
             )}
 
             {printStatus === 'success' && (
               <>
-                <CheckCircle2 className="text-green-500 animate-in zoom-in-50 duration-500" size={64} />
+                <CheckCircle2 className="text-[#3C3B6E] animate-in zoom-in-50 duration-500" size={64} />
                 <div className="flex flex-col items-center gap-2">
-                  <span className="text-2xl font-black text-white uppercase tracking-widest">Completed!</span>
-                  <span className="text-xs text-green-500/70 font-bold uppercase tracking-widest">Take your memory with you</span>
+                  <span className="text-2xl font-black text-[#201C18] uppercase tracking-widest brand-font">Completed!</span>
+                  <span className="text-xs text-[#3C3B6E] font-bold uppercase tracking-widest">Take your memory with you</span>
                 </div>
               </>
             )}
 
             {typeof printStatus === 'string' && printStatus.startsWith('error') && (
               <>
-                <XCircle className="text-red-500" size={64} />
+                <XCircle className="text-[#E8733A]" size={64} />
                 <div className="flex flex-col items-center gap-2">
-                  <span className="text-2xl font-black text-white uppercase tracking-widest">Printer Error</span>
-                  <span className="text-xs text-red-500/70 font-bold uppercase tracking-widest text-center max-w-[250px]">
+                  <span className="text-2xl font-black text-[#201C18] uppercase tracking-widest brand-font">Printer Error</span>
+                  <span className="text-xs text-[#E8733A]/85 font-bold uppercase tracking-widest text-center max-w-[250px]">
                     {printStatus.split(':')[1] || 'Unknown error occurred'}
                   </span>
                 </div>
@@ -367,20 +340,20 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({ imageSrc, rawImage, 
         </div>
       )}
 
-      {/* Printer Settings Overlay */}
+      {/* Printer Settings Overlay (Modal) */}
       {showPrinterSettings && (
-        <div className="absolute inset-0 z-[120] bg-black/80 backdrop-blur-md flex items-center justify-center p-6">
-          <div className="bg-slate-900 border border-yellow-500/30 p-8 rounded-3xl w-full max-w-md shadow-2xl">
+        <div className="absolute inset-0 z-[120] bg-black/50 backdrop-blur-sm flex items-center justify-center p-6">
+          <div className="bg-[#FAF7F2] border-2 border-[#D2C5AD] p-8 rounded-3xl w-full max-w-md shadow-2xl">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-bold text-yellow-500">Printer Settings</h2>
+              <h2 className="text-xl font-black text-[#B22234] uppercase tracking-wider brand-font">Printer Settings</h2>
               <button
                 onClick={() => setShowPrinterSettings(false)}
-                className="text-slate-400 hover:text-white"
+                className="text-[#201C18]/40 hover:text-[#201C18] text-lg font-bold"
               >✕</button>
             </div>
 
             <div className="space-y-4">
-              <label className="block text-xs uppercase tracking-widest text-slate-400">Select Target Printer</label>
+              <label className="block text-xs uppercase tracking-widest text-[#201C18]/50 font-bold">Select Target Printer</label>
               {printers.length > 0 ? (
                 <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
                   {printers.map((p) => (
@@ -388,19 +361,19 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({ imageSrc, rawImage, 
                       key={p.name}
                       onClick={() => handlePrinterChange(p.name)}
                       className={`w-full text-left px-4 py-3 rounded-xl border transition-all ${selectedPrinter === p.name
-                        ? 'border-yellow-500 bg-yellow-500/10 text-white'
-                        : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
+                        ? 'border-[#B22234] bg-[#B22234]/10 text-[#201C18]'
+                        : 'border-[#D2C5AD]/40 bg-white/40 text-[#201C18]/60 hover:bg-white/70'
                         }`}
                     >
                       <div className="flex justify-between items-center">
                         <span className="font-medium truncate mr-2">{p.name}</span>
-                        {p.isDefault && <span className="text-[10px] bg-slate-700 px-2 py-0.5 rounded uppercase">Default</span>}
+                        {p.isDefault && <span className="text-[10px] bg-[#E3D4B6] px-2 py-0.5 rounded uppercase font-bold text-[#201C18]/80">Default</span>}
                       </div>
                     </button>
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-4 text-slate-500 italic">No printers found. (Requires Electron)</div>
+                <div className="text-center py-4 text-[#201C18]/30 italic">No printers found. (Requires Electron)</div>
               )}
             </div>
 
@@ -408,13 +381,13 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({ imageSrc, rawImage, 
               <button
                 onClick={handleTestPrint}
                 disabled={!selectedPrinter || printStatus === 'printing'}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-700 disabled:text-slate-500 text-white py-3 rounded-xl font-bold uppercase tracking-widest text-sm transition-all"
+                className="flex-1 bg-[#B22234] hover:bg-[#D32F2F] disabled:bg-[#FAF7F2] disabled:text-[#201C18]/20 text-[#FAF6EE] py-3 rounded-xl font-bold uppercase tracking-widest text-sm transition-all shadow-md"
               >
                 {printStatus === 'printing' ? 'Printing...' : 'Test Print'}
               </button>
               <button
                 onClick={() => setShowPrinterSettings(false)}
-                className="flex-1 py-3 bg-yellow-600 hover:bg-yellow-500 text-black font-bold rounded-xl transition-all uppercase tracking-widest text-sm"
+                className="flex-1 py-3 bg-[#D2C5AD] hover:bg-[#C8B99D] text-[#201C18] font-bold rounded-xl transition-all uppercase tracking-widest text-sm"
               >
                 Close
               </button>
@@ -423,96 +396,83 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({ imageSrc, rawImage, 
         </div>
       )}
 
-      {/* 2. Content Layer */}
-      <div className="relative z-10 w-full h-full flex flex-col items-center justify-between py-6 px-4">
-
-        {/* Header with Settings */}
-        <div className="w-full flex justify-end px-4 pt-2">
-          {((window as any).require || navigator.userAgent.indexOf('Electron') !== -1) && (
-            <button
-              onClick={() => setShowPrinterSettings(true)}
-              className="p-3 bg-white/10 hover:bg-white/20 rounded-full text-slate-200 transition-all border border-white/20 active:scale-95 group shadow-xl"
-              title="Printer Settings"
-            >
-              <Printer size={20} className="group-hover:rotate-12 transition-transform" />
-            </button>
-          )}
-        </div>
-
-        {/* Main Generated Image Display */}
-        <div className="relative w-[80%] h-[70%] flex items-center justify-center animate-scale-in">
-          <div className="h-full aspect-[2/3] max-w-full relative rounded-[48px] overflow-hidden shadow-2xl">
+      {/* Main Content Card: Clean cinematic portrait without white outline */}
+      <div className="w-full max-h-[72vh] flex items-center justify-center animate-scale-in relative z-10 mb-8">
+        <div className="h-full aspect-[2/3] max-w-full relative rounded-[38px] shadow-[0_30px_60px_rgba(0,0,0,0.4)] overflow-hidden bg-black">
             <img
               src={imageSrc}
               alt="Generated Portrait"
               draggable="false"
               className="w-full h-full object-cover transform transition-all duration-700"
             />
-          </div>
+        </div>
+      </div>
+
+      {/* Bottom Stacked Grid: Stacked buttons left, QR code card right */}
+      <div className="absolute bottom-6 z-10 w-full max-w-lg md:max-w-2xl px-8 flex items-center justify-center gap-10 md:gap-14 pb-4 animate-slide-in-bottom">
+        
+        {/* Left column stacked buttons */}
+        <div className="flex flex-col gap-8 w-[57%]">
+          {/* PRINT PHOTO Button — Patriot Red */}
+          <button
+            onClick={handlePrint}
+            className="flex items-center justify-center gap-4 py-5 px-8 bg-[#B22234] hover:bg-[#D32F2F] text-[#FAF6EE] font-extrabold rounded-[28px] shadow-[0_8px_16px_rgba(178,34,52,0.15)] border-b-4 border-[#7F171F] active:border-b-0 active:translate-y-1 transition-all duration-100 uppercase tracking-widest text-base md:text-xl"
+          >
+            <Printer size={28} />
+            <span>Print Photo</span>
+          </button>
+
+          {/* NEW ADVENTURE Button — Patriot Blue */}
+          <button
+            onClick={onRestart}
+            className="flex items-center justify-center gap-4 py-5 px-8 bg-[#3C3B6E] hover:bg-[#4E4D8A] text-[#FAF6EE] font-extrabold rounded-[28px] shadow-[0_8px_16px_rgba(60,59,110,0.15)] border-b-4 border-[#25244C] active:border-b-0 active:translate-y-1 transition-all duration-100 uppercase tracking-widest text-base md:text-xl"
+          >
+            <RotateCcw size={26} />
+            <span>New Adventure</span>
+          </button>
         </div>
 
-        {/* Footer Actions & QR */}
-        <div className="w-full flex justify-center pb-2">
-          <div className="flex items-end justify-center gap-12 w-full max-w-5xl px-4">
-
-            {/* Download/Share Actions */}
-            <div className="flex flex-col gap-4 animate-slide-in-bottom" style={{ animationDelay: '0.4s' }}>
-              <div className="flex gap-4">
-                <button
-                  onClick={handleDownload}
-                  className="flex items-center gap-3 px-8 py-4 bg-yellow-600 hover:bg-yellow-500 text-black font-extrabold rounded-2xl transition-all shadow-[0_10px_20px_rgba(0,0,0,0.3)] active:scale-95 group border-b-4 border-yellow-700 active:border-b-0"
-                >
-                  <Download size={22} className="group-hover:animate-bounce" />
-                  <span className="text-sm uppercase tracking-wider">Download</span>
-                </button>
-
-                <button
-                  onClick={handlePrint}
-                  className="flex items-center gap-3 px-8 py-4 bg-cyan-600 hover:bg-cyan-500 text-white font-extrabold rounded-2xl transition-all shadow-[0_10px_20px_rgba(0,255,255,0.2)] active:scale-95 group border-b-4 border-cyan-700 active:border-b-0"
-                >
-                  <Printer size={22} className="group-hover:rotate-12 transition-transform" />
-                  <span className="text-sm uppercase tracking-wider">Print Photo</span>
-                </button>
+        {/* Right column QR card container */}
+        <div className="flex flex-col items-center gap-2.5 w-[43%]">
+          <div className="w-32 h-32 md:w-36 md:h-36 bg-white rounded-[30px] md:rounded-[34px] shadow-lg p-3 relative flex items-center justify-center border border-slate-100">
+            {isUploading ? (
+              <div className="flex flex-col items-center gap-1.5">
+                <Loader2 className="animate-spin text-[#B22234]" size={32} />
+                <span className="text-[9.5px] text-slate-500 font-extrabold uppercase tracking-widest">Uploading</span>
               </div>
-
-              <button
-                onClick={onRestart}
-                className="flex items-center justify-center gap-3 px-8 py-4 bg-orange-600 hover:bg-orange-500 text-white font-extrabold rounded-2xl transition-all shadow-[0_10px_20px_rgba(255,165,0,0.2)] active:scale-95 group border-b-4 border-orange-700 active:border-b-0"
-              >
-                <RotateCcw size={20} />
-                <span className="text-sm uppercase tracking-wider">New Adventure</span>
-              </button>
-            </div>
-
-            {/* QR Code Section */}
-            <div className="flex flex-col items-center gap-3 animate-slide-in-bottom" style={{ animationDelay: '0.6s' }}>
-              <div className="w-32 h-32 bg-white rounded-2xl shadow-2xl p-2 relative group flex items-center justify-center border-2 border-yellow-600/50">
-                {isUploading ? (
-                  <div className="flex flex-col items-center gap-1.5">
-                    <Loader2 className="animate-spin text-yellow-600" size={32} />
-                    <span className="text-[10px] text-slate-600 font-bold uppercase">Uploading</span>
-                  </div>
-                ) : qrCodeUrl ? (
-                  <img src={qrCodeUrl} alt="QR Code" draggable="false" className="w-full h-full object-contain" />
-                ) : (
-                  <QrCode className="text-slate-400 opacity-20" size={48} />
-                )}
-              </div>
-              <span className="text-[11px] text-yellow-500 font-black tracking-widest uppercase bg-black/50 px-3 py-1 rounded-full backdrop-blur-md text-center block shadow-lg border border-yellow-500/20">Scan to Share</span>
-            </div>
-
+            ) : qrCodeUrl ? (
+              <img src={qrCodeUrl} alt="QR Code" draggable="false" className="w-full h-full object-contain" />
+            ) : (
+              <Loader2 className="animate-spin text-slate-300" size={32} />
+            )}
           </div>
+          <span 
+            className="text-sm md:text-base text-[#E8D5B5] font-black tracking-widest uppercase text-center block mt-3 animate-pulse"
+            style={{ textShadow: '0 2px 6px rgba(0,0,0,0.8)' }}
+          >
+            Scan to<br />Get Your Photo
+          </span>
         </div>
 
       </div>
 
       <style>{`
         @keyframes scale-in {
-          from { transform: scale(0.9); opacity: 0; }
+          from { transform: scale(0.92); opacity: 0; }
           to { transform: scale(1); opacity: 1; }
         }
+        @keyframes slide-in-bottom {
+          from { transform: translateY(30px); opacity: 0; }
+          to { transform: translateY(0); opacity: 1; }
+        }
         .animate-scale-in {
-          animation: scale-in 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+          animation: scale-in 0.75s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        .animate-slide-in-bottom {
+          animation: slide-in-bottom 0.75s cubic-bezier(0.16, 1, 0.3, 1) 0.1s forwards;
+        }
+        .brand-font {
+          font-family: 'IM Fell English', serif;
         }
       `}</style>
     </div>

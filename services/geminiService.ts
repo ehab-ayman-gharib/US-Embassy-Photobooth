@@ -38,6 +38,57 @@ export interface GenerationResult {
   prompt: string;
 }
 
+/**
+ * Builds a detailed subject description block for the image generation prompt
+ * using the actual face detection counts and genders.
+ */
+const buildSubjectDescription = (faceData: FaceDetectionResult, era: EraData): string => {
+  const { maleCount, femaleCount, childCount, totalPeople } = faceData;
+  const lines: string[] = [];
+
+  // --- Header: tell the model exactly how many people to integrate ---
+  if (totalPeople === 1) {
+    lines.push(`Use the uploaded photo as the facial reference. There is exactly 1 person in the photo who must be seamlessly integrated into the historical scene.`);
+  } else {
+    lines.push(`CRITICAL — MULTIPLE SUBJECTS: There are exactly ${totalPeople} people detected in the uploaded reference photo. Every single one of them must be seamlessly integrated into the historical scene together. Do NOT omit anyone.`);
+  }
+
+  // --- Per-gender identity & clothing instructions ---
+  const isDeclaration = era.id === EraId.DECLARATION;
+
+  // Males
+  if (maleCount > 0) {
+    const maleLabel = maleCount === 1 ? "1 adult male" : `${maleCount} adult males`;
+    const maleClothing = isDeclaration
+      ? "dark colonial coat, waistcoat, cravat, knee breeches, white stockings, and buckled shoes — matching the surrounding founding fathers"
+      : "authentic Revolutionary War-era military uniform matching George Washington's style — dark blue regimental coat with brass buttons, buff waistcoat, and tricorn hat";
+    lines.push(`• ${maleLabel}: Preserve each male's real facial identity exactly — skin tone, facial proportions, eye shape, nose, lips, facial hair, and overall likeness. Do not stylize, cartoonize, beautify, or alter any facial structure. Dress each male in historically accurate 18th-century ${maleClothing}.`);
+  }
+
+  // Females
+  if (femaleCount > 0) {
+    const femaleLabel = femaleCount === 1 ? "1 adult female" : `${femaleCount} adult females`;
+    const femaleClothing = isDeclaration
+      ? "elegant 18th-century colonial women's formal dress with period-accurate rich fabrics, lace details, and refined accessories appropriate to the revolutionary era"
+      : "authentic Revolutionary War-era women's clothing such as a sturdy colonial dress with a warm traveling cloak, bonnet, and practical period-accurate layers suitable for a winter river crossing";
+    lines.push(`• ${femaleLabel}: Preserve each female's real facial identity exactly — skin tone, facial proportions, eye shape, nose, lips, hair style, and overall likeness. Do not stylize, cartoonize, beautify, or alter any facial structure. Dress each female in ${femaleClothing}.`);
+  }
+
+  // Children
+  if (childCount > 0) {
+    const childLabel = childCount === 1 ? "1 child" : `${childCount} children`;
+    const childClothing = isDeclaration
+      ? "smaller-scale 18th-century colonial children's formal clothing matching the adult style of the era"
+      : "smaller-scale Revolutionary War-era children's clothing appropriate for a winter military crossing";
+    lines.push(`• ${childLabel}: Preserve each child's youthful facial features exactly — rounder face, proportionally larger eyes, smaller stature. Dress each child in ${childClothing}. Position children naturally near the adults.`);
+  }
+
+  // --- Universal identity preservation emphasis ---
+  lines.push(`\nIDENTITY PRESERVATION RULES (apply to ALL ${totalPeople} subject(s)):\n- Each person's face must remain fully recognizable and match the uploaded photo exactly.\n- Preserve real skin texture, facial proportions, eye color, eye shape, nose shape, lip shape, jawline, hairline, facial hair, and overall likeness.\n- Do NOT stylize, cartoonize, beautify, age, de-age, or alter any facial structure.\n- Seamlessly integrate each person into the historical scene as if they were originally part of the painting.`);
+
+  return lines.join("\n");
+};
+
 export const generateHistoricalImage = async (
   base64Image: string,
   era: EraData,
@@ -46,32 +97,12 @@ export const generateHistoricalImage = async (
   const ai = getAiClient();
   const cleanBase64 = base64Image.replace(/^data:image\/(png|jpeg|jpg);base64,/, '');
 
-  // 1. Calculate Detailed Subject Description
-  let subjectDescription = "";
-  if (faceData.totalPeople > 1) {
-    subjectDescription = `\n\nCRITICAL NOTE REGARDING SUBJECTS:\nThere are ${faceData.totalPeople} people detected in the uploaded reference photo. Ensure ALL of them are seamlessly integrated into the historical scene together, adhering to the same stylistic, lighting, and integration rules outlined above.`;
-  }
+  // 1. Build detailed subject description from face detection data
+  const subjectDescription = buildSubjectDescription(faceData, era);
 
   // 2. Construct Unified Prompt
-  const isFemale = faceData.femaleCount > 0 && faceData.femaleCount >= faceData.maleCount;
-  const genderIdentity = isFemale ? "female" : "male";
-
-  let genderClothing = "";
-  if (era.id === EraId.DECLARATION) {
-    genderClothing = isFemale
-      ? "- elegant 18th-century colonial women's formal dresses\n- period-accurate rich fabrics\n- realistic historical textures\n- elegant revolutionary-era clothing details"
-      : "- dark colonial coats\n- waistcoats\n- cravats\n- period-accurate fabrics\n- realistic historical textures\n- elegant revolutionary-era clothing details";
-  } else if (era.id === EraId.DELAWARE) {
-    genderClothing = isFemale
-      ? "authentic Revolutionary War-era women's clothing, such as a colonial dress with a cloak"
-      : "authentic Revolutionary War-era clothing matching George Washington's style";
-  }
-
-  const eraPrompt = era.promptInstructions
-    .replace(/\{\{GENDER_IDENTITY\}\}/g, genderIdentity)
-    .replace(/\{\{GENDER_CLOTHING\}\}/g, genderClothing);
-
-  const prompt = `${eraPrompt}${subjectDescription}`;
+  const prompt = era.promptInstructions
+    .replace(/\{\{SUBJECT_DESCRIPTION\}\}/g, subjectDescription);
 
   console.log("------------------- GENERATED PROMPT -------------------");
   console.log(prompt);
